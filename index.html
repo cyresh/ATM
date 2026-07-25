@@ -354,6 +354,7 @@
         <div class="settings-link" data-settings-nav="settingsImport"><span>Client Import</span><span class="chev">&#8250;</span></div>
         <div class="settings-link" data-settings-nav="settingsTasks"><span>Task &amp; Category Editor</span><span class="chev">&#8250;</span></div>
         <div class="settings-link" data-settings-nav="settingsDisplay"><span>Display</span><span class="chev">&#8250;</span></div>
+        <div class="settings-link" data-settings-nav="settingsBackup"><span>Backup &amp; Restore</span><span class="chev">&#8250;</span></div>
         <div class="settings-link" data-settings-nav="settingsAbout"><span>Help &amp; About</span><span class="chev">&#8250;</span></div>
       </div>
     </div>
@@ -454,6 +455,23 @@
           <button class="chip" data-font-size="medium">Medium</button>
           <button class="chip" data-font-size="large">Large</button>
         </div>
+      </div>
+    </div>
+
+    <div class="view" id="view-settingsBackup">
+      <div class="card">
+        <h3>Backup</h3>
+        <div class="row-sub" style="margin-bottom:14px;">Save a copy of everything &mdash; clients, tasks, categories, settings &mdash; as a file.</div>
+        <button class="btn" id="downloadBackupBtn" style="margin-bottom:10px;">Download Backup</button>
+        <button class="btn secondary" id="shareBackupBtn">Share / Save to Drive</button>
+        <div id="backupShareNote" class="row-sub" style="margin-top:10px; display:none;"></div>
+      </div>
+      <div class="card">
+        <h3>Restore</h3>
+        <div class="row-sub" style="margin-bottom:14px; color:var(--bad);">Restoring replaces everything currently in the app. Make sure you have a recent backup before continuing.</div>
+        <label class="btn secondary" for="restoreBackupInput" style="display:block; text-align:center;">Restore from Backup</label>
+        <input type="file" id="restoreBackupInput" accept=".json" style="display:none;">
+        <div id="restoreSummary" style="margin-top:12px; font-size:.85em; color:var(--text-dim);"></div>
       </div>
     </div>
 

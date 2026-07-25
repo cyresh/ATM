@@ -277,19 +277,16 @@
 
     <div class="view active" id="view-dashboard">
       <div class="card">
-        <h3>Task-Type Summary</h3>
-        <div class="placeholder">Built in Stage 7 — counts per task type with progress bars.</div>
-        <div class="stage-tag">Coming: Stage 7</div>
+        <h3>Task-Type Summary <span style="font-weight:400; text-transform:none; letter-spacing:0;">(FY <span id="dashFYLabelA"></span>)</span></h3>
+        <div id="dashboardTaskTypeSummary"></div>
       </div>
       <div class="card">
-        <h3>Client-Wise Completion</h3>
-        <div class="placeholder">Built in Stage 7 — total / completed / pending clients.</div>
-        <div class="stage-tag">Coming: Stage 7</div>
+        <h3>Client-Wise Completion <span style="font-weight:400; text-transform:none; letter-spacing:0;">(FY <span id="dashFYLabelB"></span>)</span></h3>
+        <div id="dashboardClientSummary"></div>
       </div>
       <div class="card">
         <h3>Due-Date Summary</h3>
-        <div class="placeholder">Built in Stage 7 — grouped by due date, with live countdown for items due today.</div>
-        <div class="stage-tag">Coming: Stage 7</div>
+        <div id="dashboardDueDateSummary"></div>
       </div>
     </div>
 
@@ -348,6 +345,17 @@
     </div>
 
     <div class="view" id="view-settings">
+      <div class="card" style="padding:6px 16px;">
+        <div class="settings-link" data-settings-nav="settingsProfile"><span>Profile</span><span class="chev">&#8250;</span></div>
+        <div class="settings-link" data-settings-nav="settingsSecurity"><span>Security</span><span class="chev">&#8250;</span></div>
+        <div class="settings-link" data-settings-nav="settingsImport"><span>Client Import</span><span class="chev">&#8250;</span></div>
+        <div class="settings-link" data-settings-nav="settingsTasks"><span>Task &amp; Category Editor</span><span class="chev">&#8250;</span></div>
+        <div class="settings-link" data-settings-nav="settingsDisplay"><span>Display</span><span class="chev">&#8250;</span></div>
+        <div class="settings-link" data-settings-nav="settingsAbout"><span>Help &amp; About</span><span class="chev">&#8250;</span></div>
+      </div>
+    </div>
+
+    <div class="view" id="view-settingsProfile">
       <div class="card">
         <h3>Profile</h3>
         <div class="row-sub" style="margin-bottom:12px;">Used automatically wherever the app shares or exports something</div>
@@ -377,7 +385,9 @@
         <button class="btn" id="saveProfileBtn">Save Profile</button>
         <div id="profileSavedMsg" style="text-align:center; color:var(--good); font-size:.85em; height:18px; margin-top:8px;"></div>
       </div>
+    </div>
 
+    <div class="view" id="view-settingsSecurity">
       <div class="card">
         <h3>Security</h3>
         <div class="row">
@@ -405,7 +415,9 @@
           <span class="chev">&#8250;</span>
         </div>
       </div>
+    </div>
 
+    <div class="view" id="view-settingsImport">
       <div class="card">
         <h3>Client Import</h3>
         <div class="row-sub" style="margin-bottom:14px;">Download the template, fill it in Excel, then upload it back. Re-uploading updates existing clients (matched by name) instead of duplicating them.</div>
@@ -414,7 +426,9 @@
         <input type="file" id="importFileInput" accept=".csv" style="display:none;">
         <div id="importSummary" style="margin-top:12px; font-size:.85em; color:var(--text-dim);"></div>
       </div>
+    </div>
 
+    <div class="view" id="view-settingsTasks">
       <div class="card">
         <h3>Task &amp; Category Editor</h3>
         <div class="settings-link" id="manageCategoriesLink">
@@ -426,15 +440,34 @@
           <span class="chev">&#8250;</span>
         </div>
       </div>
+    </div>
 
+    <div class="view" id="view-settingsDisplay">
       <div class="card">
         <h3>Display</h3>
-        <div class="placeholder">Font size control — later stage.</div>
+        <div class="row-sub" style="margin-bottom:12px;">Adjust text size across the app</div>
+        <div class="chip-row" id="fontSizeChips">
+          <button class="chip" data-font-size="small">Small</button>
+          <button class="chip" data-font-size="medium">Medium</button>
+          <button class="chip" data-font-size="large">Large</button>
+        </div>
       </div>
+    </div>
 
+    <div class="view" id="view-settingsAbout">
+      <div class="card">
+        <h3>Help</h3>
+        <div class="placeholder" style="line-height:1.7;">
+          <strong>Dashboard</strong> &mdash; task-type totals, client completion, and due dates for the current financial year, with a live countdown for anything due today.<br><br>
+          <strong>Clients</strong> &mdash; search and filter your client list. Tap a client to see their tasks by year, set priority, or add a task.<br><br>
+          <strong>Tasks</strong> &mdash; see every client for one task type at once. Select multiple to mark complete in bulk, or assign the task to more clients.<br><br>
+          <strong>Priority</strong> &mdash; clients grouped P1&ndash;P4, plus anyone waiting on data from you. Use the arrows to move a client up or down.<br><br>
+          <strong>Settings</strong> &mdash; your profile, PIN/fingerprint lock, client import, task &amp; category setup, and display options.
+        </div>
+      </div>
       <div class="card">
         <h3>About</h3>
-        <div class="placeholder" id="aboutText">Version 0.1.0 · Stage 1</div>
+        <div class="placeholder" id="aboutText">Version 0.1.0 &middot; Stage 1</div>
       </div>
     </div>
 

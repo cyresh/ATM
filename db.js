@@ -7,6 +7,15 @@
 
 const DB_KEY = "atm_db_v1";
 
+// In-memory cache of the whole local DB. Without this, every single
+// DB.get()/getAll() call would re-parse the entire localStorage blob from
+// scratch — fine with a handful of records, but with hundreds of clients
+// and their tasks it adds real, noticeable lag to something as simple as
+// tapping a tick-complete button (which triggers a write + several reads
+// for the re-render right after). Caching means JSON.parse only happens
+// once per page load; every read after that is a direct object access.
+let _dbCache = null;
+
 const STORES = {
   clients: "clients",
   taskTypes: "taskTypes",
@@ -18,13 +27,17 @@ const STORES = {
 };
 
 function _load() {
+  if (_dbCache) return _dbCache;
   try {
     const raw = localStorage.getItem(DB_KEY);
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      _dbCache = JSON.parse(raw);
+      return _dbCache;
+    }
   } catch (e) {
     console.warn("DB load failed, reinitializing", e);
   }
-  return {
+  _dbCache = {
     clients: [],
     taskTypes: [],
     clientTasks: [],
@@ -34,9 +47,11 @@ function _load() {
     settings: [],
     _counters: { clients: 1, taskTypes: 1, clientTasks: 1, subtasks: 1, categories: 1 },
   };
+  return _dbCache;
 }
 
 function _save(data) {
+  _dbCache = data;
   localStorage.setItem(DB_KEY, JSON.stringify(data));
 }
 

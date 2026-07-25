@@ -1945,6 +1945,82 @@ async function initDisplaySettings() {
 }
 
 /* ------------------------------------------------------------
+   Stage 9 — Share/Export: client task summary, pulling in the
+   Profile details as a letterhead. Uses the native share sheet
+   when available, falls back to clipboard copy.
+   ------------------------------------------------------------ */
+async function buildClientShareText(client) {
+  const [clientTasks, taskTypes, profile] = await Promise.all([
+    DB.getAll(STORES.clientTasks),
+    loadTaskTypes(),
+    getProfile(),
+  ]);
+
+  const year = currentClientYear || getCurrentFY();
+  const rows = clientTasks
+    .filter((ct) => ct.client_id === client.id && ct.year === year)
+    .map((ct) => ({ ct, tt: taskTypes.find((t) => t.id === ct.task_id) }))
+    .filter((r) => r.tt)
+    .sort((a, b) => a.tt.name.localeCompare(b.tt.name));
+
+  const headerName = profile.firm_name || profile.name || "Task Manager";
+  const lines = [];
+  lines.push(`${headerName} \u2014 Task Summary`);
+  lines.push(`Client: ${client.name} (FY ${year})`);
+  lines.push("");
+
+  if (rows.length === 0) {
+    lines.push("No tasks assigned for this year.");
+  } else {
+    const completedCount = rows.filter((r) => r.ct.status === "completed").length;
+    rows.forEach(({ ct, tt }) => {
+      const mark = ct.status === "completed" ? "\u2705" : "\u23f3";
+      const due = ct.due_date ? ` (Due ${ct.due_date})` : "";
+      const statusWord = ct.status === "completed" ? "Done" : "Pending" + due;
+      lines.push(`${mark} ${tt.name} \u2014 ${statusWord}`);
+    });
+    lines.push("");
+    lines.push(`${completedCount}/${rows.length} tasks completed`);
+  }
+
+  lines.push("");
+  const preparedBy = [profile.name, profile.firm_name].filter(Boolean).join(", ");
+  if (preparedBy) lines.push(`Prepared by ${preparedBy}`);
+  const contact = [profile.phone, profile.email].filter(Boolean).join(" | ");
+  if (contact) lines.push(contact);
+
+  return lines.join("\n");
+}
+
+async function shareClientSummary() {
+  const client = await DB.get(STORES.clients, currentClientId);
+  if (!client) return;
+  const text = await buildClientShareText(client);
+
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: `${client.name} \u2014 Task Summary`, text });
+      return;
+    } catch (err) {
+      if (err && err.name === "AbortError") return; // user cancelled the share sheet
+      // fall through to clipboard fallback below
+    }
+  }
+
+  try {
+    await navigator.clipboard.writeText(text);
+    alert("Share isn't available here, so the summary was copied to your clipboard instead.");
+  } catch (err) {
+    console.error("Clipboard copy failed", err);
+    alert("Couldn't share or copy the summary on this device.");
+  }
+}
+
+function initShareExport() {
+  document.getElementById("shareClientBtn").addEventListener("click", shareClientSummary);
+}
+
+/* ------------------------------------------------------------
    Boot
    ------------------------------------------------------------ */
 async function boot() {
@@ -1958,6 +2034,7 @@ async function boot() {
   initClientCrud();
   initTasksTab();
   initSettingsNav();
+  initShareExport();
   await initSettings();
   await initProfile();
   await initDisplaySettings();

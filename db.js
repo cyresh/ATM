@@ -146,7 +146,7 @@ const DEFAULT_SETTINGS = [
   { key: "biometric_enabled", value: false },
   { key: "biometric_credential_id", value: null },
   { key: "font_size", value: "medium" },
-  { key: "app_version", value: "0.9.0 (Stage 9)" },
+  { key: "app_version", value: "0.9.1 (Backup/Restore)" },
   { key: "seeded", value: false },
 ];
 
@@ -170,7 +170,7 @@ async function seedIfNeeded() {
   }
 
   await DB.put(STORES.settings, { key: "seeded", value: true });
-  await setSetting("app_version", "0.9.0 (Stage 9)");
+  await setSetting("app_version", "0.9.1 (Backup/Restore)");
 }
 
 async function getSetting(key, fallback = null) {

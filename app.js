@@ -11,9 +11,16 @@ const VIEW_TITLES = {
   settings: "Settings",
   taskEditor: "Task Types",
   categoryEditor: "Categories",
+  settingsProfile: "Profile",
+  settingsSecurity: "Security",
+  settingsImport: "Client Import",
+  settingsTasks: "Task & Category Editor",
+  settingsDisplay: "Display",
+  settingsAbout: "Help & About",
 };
 
 let navHistory = ["dashboard"];
+let dashboardCountdownInterval = null;
 
 function showView(name, pushHistory = true, titleOverride = null) {
   document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
@@ -27,6 +34,10 @@ function showView(name, pushHistory = true, titleOverride = null) {
   }
   if (pushHistory) {
     if (navHistory[navHistory.length - 1] !== name) navHistory.push(name);
+  }
+  if (name !== "dashboard" && dashboardCountdownInterval) {
+    clearInterval(dashboardCountdownInterval);
+    dashboardCountdownInterval = null;
   }
   document.getElementById("views").scrollTop = 0;
 }
@@ -42,12 +53,15 @@ function initNav() {
         await renderTaskTypeGroups();
       } else if (btn.dataset.view === "priority") {
         await renderPriorityTab();
+      } else if (btn.dataset.view === "dashboard") {
+        await renderDashboard();
       }
     });
   });
-  document.getElementById("homeBtn").addEventListener("click", () => {
+  document.getElementById("homeBtn").addEventListener("click", async () => {
     navHistory = ["dashboard"];
     showView("dashboard", false);
+    await renderDashboard();
   });
   document.getElementById("backBtn").addEventListener("click", async () => {
     if (navHistory.length > 1) {
@@ -1735,6 +1749,202 @@ function initClientCrud() {
 }
 
 /* ------------------------------------------------------------
+   Stage 7 — Dashboard: task-type summary, client completion,
+   due-date summary with live countdown for items due today
+   ------------------------------------------------------------ */
+async function renderDashboard() {
+  document.getElementById("dashFYLabelA").textContent = getCurrentFY();
+  document.getElementById("dashFYLabelB").textContent = getCurrentFY();
+  await renderDashboardTaskTypeSummary();
+  await renderDashboardClientSummary();
+  await renderDashboardDueDateSummary();
+}
+
+async function renderDashboardTaskTypeSummary() {
+  const [taskTypes, clientTasks] = await Promise.all([loadTaskTypes(), DB.getAll(STORES.clientTasks)]);
+  const fy = getCurrentFY();
+  const container = document.getElementById("dashboardTaskTypeSummary");
+
+  const rows = taskTypes
+    .map((t) => {
+      const forYear = clientTasks.filter((ct) => ct.task_id === t.id && ct.year === fy);
+      return { t, total: forYear.length, completed: forYear.filter((ct) => ct.status === "completed").length };
+    })
+    .filter((r) => r.total > 0)
+    .sort((a, b) => (b.total - b.completed) - (a.total - a.completed)); // most pending first
+
+  if (rows.length === 0) {
+    container.innerHTML = `<div class="empty-state">No tasks assigned yet for FY ${escapeHtml(fy)}.</div>`;
+    return;
+  }
+
+  container.innerHTML = rows
+    .map(({ t, total, completed }) => {
+      const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+      return `
+        <div class="clickable-row" data-open-task-type="${t.id}" style="margin-bottom:14px;">
+          <div style="display:flex; justify-content:space-between; font-size:.9em; margin-bottom:6px;">
+            <span style="font-weight:600;">${escapeHtml(t.name)}</span>
+            <span style="color:var(--text-dim);">${completed}/${total}</span>
+          </div>
+          <div class="mini-progress"><div class="mini-progress-fill" style="width:${pct}%;"></div></div>
+        </div>`;
+    })
+    .join("");
+
+  container.querySelectorAll("[data-open-task-type]").forEach((el) => {
+    el.addEventListener("click", () => openTaskClientList(Number(el.dataset.openTaskType)));
+  });
+}
+
+async function renderDashboardClientSummary() {
+  const [clients, clientTasks] = await Promise.all([loadClients(), DB.getAll(STORES.clientTasks)]);
+  const fy = getCurrentFY();
+  const container = document.getElementById("dashboardClientSummary");
+
+  if (clients.length === 0) {
+    container.innerHTML = `<div class="empty-state">No clients yet. Import or add clients from Settings / the Clients tab.</div>`;
+    return;
+  }
+
+  let completedClients = 0, pendingClients = 0, noTasksClients = 0;
+  clients.forEach((c) => {
+    const forYear = clientTasks.filter((ct) => ct.client_id === c.id && ct.year === fy);
+    if (forYear.length === 0) { noTasksClients++; return; }
+    if (forYear.every((ct) => ct.status === "completed")) completedClients++;
+    else pendingClients++;
+  });
+
+  container.innerHTML = `
+    <div style="display:flex; gap:10px; text-align:center;">
+      <div style="flex:1;">
+        <div style="font-size:1.6em; font-weight:800;">${clients.length}</div>
+        <div class="row-sub">Total</div>
+      </div>
+      <div style="flex:1;">
+        <div style="font-size:1.6em; font-weight:800; color:var(--good);">${completedClients}</div>
+        <div class="row-sub">All Done</div>
+      </div>
+      <div style="flex:1;">
+        <div style="font-size:1.6em; font-weight:800; color:var(--warn);">${pendingClients}</div>
+        <div class="row-sub">Pending</div>
+      </div>
+    </div>
+    ${noTasksClients > 0 ? `<div class="row-sub" style="text-align:center; margin-top:12px;">${noTasksClients} client${noTasksClients === 1 ? "" : "s"} with no tasks assigned for FY ${escapeHtml(fy)}</div>` : ""}
+  `;
+}
+
+function formatDateLabel(dateStr) {
+  const d = new Date(dateStr + "T00:00:00");
+  return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+}
+
+async function renderDashboardDueDateSummary() {
+  const [clientTasks, taskTypes] = await Promise.all([DB.getAll(STORES.clientTasks), loadTaskTypes()]);
+  const fy = getCurrentFY();
+  const container = document.getElementById("dashboardDueDateSummary");
+
+  const withDates = clientTasks.filter((ct) => ct.year === fy && ct.due_date);
+  if (withDates.length === 0) {
+    container.innerHTML = `<div class="empty-state">No due dates set yet. Add due dates from a client's task screen to see them here.</div>`;
+    return;
+  }
+
+  const groups = {};
+  withDates.forEach((ct) => {
+    const key = ct.due_date + "|" + ct.task_id;
+    if (!groups[key]) groups[key] = { due_date: ct.due_date, task_id: ct.task_id, total: 0, completed: 0 };
+    groups[key].total++;
+    if (ct.status === "completed") groups[key].completed++;
+  });
+
+  const rows = Object.values(groups)
+    .filter((g) => g.completed < g.total)
+    .sort((a, b) => a.due_date.localeCompare(b.due_date));
+
+  if (rows.length === 0) {
+    container.innerHTML = `<div class="empty-state">Everything with a due date is complete. Nice.</div>`;
+    return;
+  }
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  container.innerHTML = rows
+    .map((g) => {
+      const tt = taskTypes.find((t) => t.id === g.task_id);
+      const pending = g.total - g.completed;
+      const isToday = g.due_date === todayStr;
+      return `
+        <div class="task-card">
+          <div class="task-card-main">
+            <div class="task-card-title">${escapeHtml(formatDateLabel(g.due_date))} &mdash; ${escapeHtml(tt ? tt.name : "Unknown Task")}</div>
+            <div class="task-card-sub">${g.completed}/${g.total} done &middot; ${pending} pending${
+              isToday ? ` &middot; <span data-countdown-target="${g.due_date}">calculating&hellip;</span>` : ""
+            }</div>
+          </div>
+        </div>`;
+    })
+    .join("");
+
+  startDueTodayCountdowns();
+}
+
+function startDueTodayCountdowns() {
+  if (dashboardCountdownInterval) {
+    clearInterval(dashboardCountdownInterval);
+    dashboardCountdownInterval = null;
+  }
+  const els = document.querySelectorAll("[data-countdown-target]");
+  if (els.length === 0) return;
+
+  function tick() {
+    const now = new Date();
+    const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0);
+    const diffMs = midnight - now;
+    if (diffMs <= 0) return;
+    const h = Math.floor(diffMs / 3600000);
+    const m = Math.floor((diffMs % 3600000) / 60000);
+    const s = Math.floor((diffMs % 60000) / 1000);
+    const label = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")} left today`;
+    document.querySelectorAll("[data-countdown-target]").forEach((el) => { el.textContent = label; });
+  }
+  tick();
+  dashboardCountdownInterval = setInterval(tick, 1000);
+}
+
+/* ------------------------------------------------------------
+   Stage 8 — Settings as a list (tap a row to see its details),
+   plus working font-size control
+   ------------------------------------------------------------ */
+function initSettingsNav() {
+  document.querySelectorAll("[data-settings-nav]").forEach((el) => {
+    el.addEventListener("click", () => showView(el.dataset.settingsNav, true));
+  });
+}
+
+const FONT_SCALES = { small: 0.9, medium: 1, large: 1.15 };
+
+function applyFontScale(size) {
+  document.documentElement.style.setProperty("--font-scale", FONT_SCALES[size] || 1);
+}
+
+async function initDisplaySettings() {
+  const current = await getSetting("font_size", "medium");
+  applyFontScale(current);
+
+  const buttons = document.querySelectorAll("#fontSizeChips [data-font-size]");
+  buttons.forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.fontSize === current);
+    btn.addEventListener("click", async () => {
+      const size = btn.dataset.fontSize;
+      await setSetting("font_size", size);
+      applyFontScale(size);
+      buttons.forEach((b) => b.classList.toggle("active", b === btn));
+    });
+  });
+}
+
+/* ------------------------------------------------------------
    Boot
    ------------------------------------------------------------ */
 async function boot() {
@@ -1747,8 +1957,11 @@ async function boot() {
   initClientsTab();
   initClientCrud();
   initTasksTab();
+  initSettingsNav();
   await initSettings();
   await initProfile();
+  await initDisplaySettings();
+  await renderDashboard();
   await showLockScreenIfNeeded();
 
   if ("serviceWorker" in navigator) {

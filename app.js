@@ -16,6 +16,7 @@ const VIEW_TITLES = {
   settingsImport: "Client Import",
   settingsTasks: "Task & Category Editor",
   settingsDisplay: "Display",
+  settingsBackup: "Backup & Restore",
   settingsAbout: "Help & About",
 };
 
@@ -2021,6 +2022,93 @@ function initShareExport() {
 }
 
 /* ------------------------------------------------------------
+   Backup & Restore — download the whole local DB as a file, or
+   send it through the share sheet so the person can pick Google
+   Drive (or anything else) as the destination. There's no direct
+   Google Drive API integration here — that would need the person
+   to set up their own Google Cloud OAuth credentials tied to
+   their hosted domain, which is a whole separate piece of setup.
+   Going through the native share sheet gets the same practical
+   result (a copy sitting in Drive) with zero configuration.
+   ------------------------------------------------------------ */
+function backupFilename() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  return `task-manager-backup-${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}.json`;
+}
+
+function getBackupBlob() {
+  const raw = localStorage.getItem(DB_KEY) || "{}";
+  return new Blob([raw], { type: "application/json" });
+}
+
+function downloadBackup() {
+  const blob = getBackupBlob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = backupFilename();
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function shareBackup() {
+  const note = document.getElementById("backupShareNote");
+  note.style.display = "none";
+
+  const blob = getBackupBlob();
+  const file = new File([blob], backupFilename(), { type: "application/json" });
+
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: "Task Manager Backup" });
+      return;
+    } catch (err) {
+      if (err && err.name === "AbortError") return; // user cancelled the share sheet
+    }
+  }
+
+  downloadBackup();
+  note.textContent =
+    "Sharing directly isn't supported here, so the backup was downloaded instead \u2014 open the Google Drive app and upload it from your downloads.";
+  note.style.display = "block";
+}
+
+async function restoreFromBackup(file) {
+  const summary = document.getElementById("restoreSummary");
+  summary.textContent = "";
+  try {
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    const requiredKeys = ["clients", "taskTypes", "clientTasks", "subtasks", "categories", "settings"];
+    const looksValid = requiredKeys.every((k) => Array.isArray(parsed[k]));
+    if (!looksValid) {
+      summary.textContent = "This file doesn't look like a Task Manager backup.";
+      return;
+    }
+    if (!confirm("This replaces everything currently in the app with the backup. Continue?")) return;
+    localStorage.setItem(DB_KEY, JSON.stringify(parsed));
+    summary.textContent = "Restored. Reloading\u2026";
+    setTimeout(() => location.reload(), 800);
+  } catch (err) {
+    console.error("Restore failed", err);
+    summary.textContent = "Couldn't read that file \u2014 make sure it's a Task Manager backup JSON.";
+  }
+}
+
+function initBackupRestore() {
+  document.getElementById("downloadBackupBtn").addEventListener("click", downloadBackup);
+  document.getElementById("shareBackupBtn").addEventListener("click", shareBackup);
+  document.getElementById("restoreBackupInput").addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (file) restoreFromBackup(file);
+    e.target.value = "";
+  });
+}
+
+/* ------------------------------------------------------------
    Boot
    ------------------------------------------------------------ */
 async function boot() {
@@ -2035,6 +2123,7 @@ async function boot() {
   initTasksTab();
   initSettingsNav();
   initShareExport();
+  initBackupRestore();
   await initSettings();
   await initProfile();
   await initDisplaySettings();

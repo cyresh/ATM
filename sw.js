@@ -1,4 +1,4 @@
-const CACHE_NAME = "atm-cache-v3";
+const CACHE_NAME = "atm-cache-v4";
 const ASSETS = ["./index.html", "./app.js", "./db.js", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (e) => {

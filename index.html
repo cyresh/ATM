@@ -304,7 +304,10 @@
 
     <div class="view" id="view-clientDetail">
       <div class="detail-header" id="clientDetailHeader"></div>
-      <button class="btn secondary" id="editClientBtn" style="margin-bottom:6px;">Edit Client</button>
+      <div style="display:flex; gap:10px; margin-bottom:6px;">
+        <button class="btn secondary" id="editClientBtn" style="flex:1;">Edit Client</button>
+        <button class="btn secondary" id="shareClientBtn" style="flex:1;">Share Summary</button>
+      </div>
       <div class="priority-row" id="clientPriorityRow"></div>
       <div class="year-tabs" id="clientYearTabs"></div>
       <button class="btn secondary" id="addTaskToClientBtn" style="margin-bottom:12px;">+ Add Task</button>
